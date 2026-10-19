@@ -1,0 +1,21 @@
+[project]
+name = "tg-rag-bot"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "oleksandrkapyrin-droid", email = "336793785+oleksandrkapyrin-droid@users.noreply.github.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "aiogram>=3.31.0",
+    "groq>=1.7.0",
+    "python-dotenv>=1.2.4",
+]
+
+[project.scripts]
+tg-rag-bot = "tg_rag_bot:main"
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"
