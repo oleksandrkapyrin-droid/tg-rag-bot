@@ -21,6 +21,7 @@ print("Перші 10 символів токена:", TOKEN[:10])
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
+user_history = {}
 
 @dp.message(Command("start"))
 async def start_command(message: types.Message):
@@ -29,23 +30,25 @@ async def start_command(message: types.Message):
 @dp.message()
 async def echo_handler(message: types.Message):
     await bot.send_chat_action(chat_id=message.chat.id, action="typing")
+    chat_id = message.chat.id
+    if chat_id not in user_history:
+        user_history[chat_id] = []
+
+    user_history[chat_id].append({"role": "user", "content": message.text})
 
     try:
+        system_prompt = {'role': 'system', 'content': 'Ти корисний та розумний асистент. Відповідай українською мовою.'}
+        message_for_groq = [system_prompt] + user_history[chat_id]
+        
         chat_completion = await groq_client.chat.completions.create(
-            messages=[
-                {
-                    'role': 'system',
-                    'content': 'Ти корисний та розумний асистент. Відповідай українською мовою.'
-                },
-                {
-                    'role': 'user',
-                    'content': message.text
-                }
-            ],
+            messages=message_for_groq,
             model="openai/gpt-oss-20b"
         )
         
         ai_response = chat_completion.choices[0].message.content
+        user_history[chat_id].append({"role": "assistant", "content": ai_response})
+        
+        
         
         await message.answer(ai_response)
 
