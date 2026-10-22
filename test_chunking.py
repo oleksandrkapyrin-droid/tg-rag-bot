@@ -12,6 +12,7 @@ def split_text_into_chunks(text, chunk_size=500, overlap=50):
     chunks = []
     start = 0
     text_length = len(text)
+    
 
     while start < text_length:
         end = min(start + chunk_size, text_length)
@@ -22,3 +23,4 @@ def split_text_into_chunks(text, chunk_size=500, overlap=50):
     return chunks
 
 chunks = split_text_into_chunks(full_text)
+print(chunks[:3])  # Print the first 3 chunks for verification

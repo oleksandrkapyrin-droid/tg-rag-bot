@@ -1,10 +1,13 @@
 import os
 import asyncio
 import logging
+import chromadb
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from groq import AsyncGroq
+from pypdf import PdfReader
+
 
 
 
@@ -23,6 +26,32 @@ dp = Dispatcher()
 groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
 user_history = {}
 
+def load_document(chunks_size=500, overlap=50):
+    reader = PdfReader("test.pdf")
+    full_text = ""
+    for page in reader.pages:
+        full_text += page.extract_text() + '\n'
+
+    chunks = []
+    start = 0
+    text_length = len(full_text)
+
+    while start < text_length:
+        end = min(start + chunks_size, text_length)
+        chunk = full_text[start:end]
+        chunks.append(chunk)
+        start += chunks_size - overlap
+    return chunks
+
+chroma_client = chromadb.Client()
+collection = chroma_client.create_collection(name='rag_documents')
+text_chunks = load_document()
+chunk_ids = [f'chunk_{i}' for i in range(len(text_chunks))]
+print(f'Завантажуємо {len(text_chunks)} шматків у векторну базу даних...')
+collection.add(documents=text_chunks, ids=chunk_ids)
+print("Базу даних успішно створено!")
+
+
 @dp.message(Command("start"))
 async def start_command(message: types.Message):
     await message.answer("Привіт! Я ваш бот. Як я можу допомогти вам сьогодні?")
@@ -37,7 +66,11 @@ async def echo_handler(message: types.Message):
     user_history[chat_id].append({"role": "user", "content": message.text})
 
     try:
-        system_prompt = {'role': 'system', 'content': 'Ти корисний та розумний асистент. Відповідай українською мовою.'}
+        results = collection.query(query_texts=[message.text], n_results=5)
+        context_text = '\n\n'.join(results["documents"][0])
+
+        system_prompt = {'role': 'system',
+                        'content': f'Ти корисний та розумний асистент. Відповідай на питання, спираючись ТІЛЬКИ на цей текст:\n{context_text}\n\nЯкщо відповіді в тексті немає, так і скажи. Якщо питання стосується документа в цілому, узагальни всю надану інформацію'}
         message_for_groq = [system_prompt] + user_history[chat_id]
         
         chat_completion = await groq_client.chat.completions.create(
